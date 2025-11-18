@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'firebase_config.dart';
 import 'firestone_service.dart';
+import 'login_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +20,23 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Notas con Firebase',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.deepPurple),
-      home: const NotesPage(),
+
+      home: StreamBuilder(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (!snapshot.hasData) {
+            return const LoginPage();
+          }
+
+          return const NotesPage();
+        },
+      ),
     );
   }
 }
@@ -51,7 +70,9 @@ class _NotesPageState extends State<NotesPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: ctrl, decoration: const InputDecoration(labelText: 'Texto')),
+            TextField(
+                controller: ctrl,
+                decoration: const InputDecoration(labelText: 'Texto')),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: selectedCategory,
@@ -67,7 +88,9 @@ class _NotesPageState extends State<NotesPage> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, {
               'text': ctrl.text.trim(),
@@ -87,7 +110,6 @@ class _NotesPageState extends State<NotesPage> {
     await _service.deleteNote(id);
   }
 
-  // ✅ Método para formatear fecha sin usar intl
   String _formatDate(Timestamp timestamp) {
     final date = timestamp.toDate();
     final h = date.hour.toString().padLeft(2, '0');
@@ -101,7 +123,15 @@ class _NotesPageState extends State<NotesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Notas con Firebase')),
+      appBar: AppBar(
+        title: const Text('Notas con Firebase'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => FirebaseAuth.instance.signOut(),
+          )
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -125,17 +155,22 @@ class _NotesPageState extends State<NotesPage> {
                   child: DropdownButtonFormField<String>(
                     value: _selectedCategory,
                     items: const [
-                      DropdownMenuItem(value: 'Personal', child: Text('Personal')),
-                      DropdownMenuItem(value: 'Trabajo', child: Text('Trabajo')),
-                      DropdownMenuItem(value: 'Estudio', child: Text('Estudio')),
+                      DropdownMenuItem(
+                          value: 'Personal', child: Text('Personal')),
+                      DropdownMenuItem(
+                          value: 'Trabajo', child: Text('Trabajo')),
+                      DropdownMenuItem(
+                          value: 'Estudio', child: Text('Estudio')),
                       DropdownMenuItem(value: 'Otro', child: Text('Otro')),
                     ],
                     onChanged: (v) => setState(() => _selectedCategory = v!),
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                    decoration:
+                        const InputDecoration(border: OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton(onPressed: _addNote, child: const Text('Agregar')),
+                ElevatedButton(
+                    onPressed: _addNote, child: const Text('Agregar')),
               ],
             ),
           ),
@@ -147,7 +182,9 @@ class _NotesPageState extends State<NotesPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final notes = snapshot.data!.docs;
-                if (notes.isEmpty) return const Center(child: Text('Sin notas aún'));
+                if (notes.isEmpty) {
+                  return const Center(child: Text('Sin notas aún'));
+                }
 
                 return ListView.builder(
                   itemCount: notes.length,
@@ -158,14 +195,16 @@ class _NotesPageState extends State<NotesPage> {
                     final createdAt = doc['createdAt'] as Timestamp;
 
                     return ListTile(
-                      title: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      title: Text(text,
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text(
                         'Categoría: $category\nCreado: ${_formatDate(createdAt)}',
                         style: const TextStyle(color: Colors.black54),
                       ),
                       onTap: () => _editNote(doc.id, text, category),
                       trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.redAccent),
+                        icon:
+                            const Icon(Icons.delete, color: Colors.redAccent),
                         onPressed: () => _deleteNote(doc.id),
                       ),
                     );
